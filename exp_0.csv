@@ -1,0 +1,2 @@
+N,L,log_P,dnum,log_q_i,latency_us,dsp,uram,bram,bandwidth_gbps,frequency_mhz
+65536,44,1,45,62,99999999999999999999999999,9120,1024,2160,460,250
