@@ -65,4 +65,7 @@ if __name__ == "__main__":
   args = parser.parse_args()
 
   parsed_input = parse_input_csv(args.input)
+
+  assert (args.operation
+          in ["CtCtAdd", "CtCtMult", "Rotate", "KeySwitch", "Rescale"])
   run_design_space_exploration(parsed_input, args.operation, args.output)
