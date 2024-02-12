@@ -17,10 +17,10 @@ class Constraints:
     self.frequency_mhz = frequency_mhz
 
   def display_constraints(self):
-    print("Exploration constraints are: ")
-    print(f"Latency (us): {self.latency}")
-    print(f"URAM (instances): {self.uram}")
-    print(f"BRAM (instances): {self.bram}")
-    print(f"DSP: {self.dsp}")
-    print(f"Bandwidth (GB/s): {self.bandwidth_gbps}")
-    print(f"Frequency (MHz): {self.frequency_mhz}\n")
+    print("Exploration constraints are shown below.")
+    print(f"\tLatency (us): {self.latency}")
+    print(f"\tURAM (instances): {self.uram}")
+    print(f"\tBRAM (instances): {self.bram}")
+    print(f"\tDSP: {self.dsp}")
+    print(f"\tBandwidth (GB/s): {self.bandwidth_gbps}")
+    print(f"\tFrequency (MHz): {self.frequency_mhz}")

@@ -4,6 +4,12 @@ import he_parameters
 
 import argparse
 import csv
+import logging
+import os
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger('framework_dse')
+logger.setLevel("DEBUG")
 
 
 def parse_input_csv(input_file):
@@ -24,7 +30,8 @@ def parse_input_csv(input_file):
 
 
 def run_design_space_exploration(parsed_input, he_op, output_file):
-  # Your code here
+  logger.info(f"Running design space exploration for {he_op}.")
+
   he_params = he_parameters.HeParameters(parsed_input["N"], parsed_input["L"],
                                          parsed_input["log_P"],
                                          parsed_input["dnum"],
@@ -39,7 +46,7 @@ def run_design_space_exploration(parsed_input, he_op, output_file):
   exploration_constraints.display_constraints()
 
   dse = explorer.Explorer(he_params, he_op, exploration_constraints)
-  dse.explore_design_space(output_file)
+  dse.explore_design_space(output_file, logger)
 
 
 if __name__ == "__main__":
