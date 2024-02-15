@@ -30,18 +30,18 @@ class Explorer:
   def explore_design_space(self, output_file, logger):
     logger.info("Start running design space exploration...\n")
 
-    # file = open(output_file, 'w', newline='')
-    # writer = csv.writer(file)
-    # writer.writerow(
-    #     ["latency", "dsp", "uram", "bram", "NumAlu", "PermTput", "ScratchSize"])
+    file = open(output_file, 'w', newline='')
+    writer = csv.writer(file)
+    writer.writerow(
+        ["latency", "dsp", "uram", "bram", "NumAlu", "PermTput", "ScratchSize"])
 
-    # alu_range_generator = generate_range(1, 512)
-    # NUM_ALUS_RANGE = list(alu_range_generator)
-    # # print(NUM_ALUS_RANGE)
+    alu_range_generator = generate_range(1, 512)
+    NUM_ALUS_RANGE = list(alu_range_generator)
+    logger.debug(f"Modular ALU sweeping range: {NUM_ALUS_RANGE}")
 
-    # throughput_permute_range_generator = generate_range(2, 512)
-    # THROUGHPUT_PERMUTE_RANGE = list(throughput_permute_range_generator)
-    # # print(THROUGHPUT_PERMUTE_RANGE)
+    throughput_permute_range_generator = generate_range(2, 512)
+    THROUGHPUT_PERMUTE_RANGE = list(throughput_permute_range_generator)
+    logger.debug(f"Permute pipeline sweeping range: {THROUGHPUT_PERMUTE_RANGE}")
 
     # a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints)
     # l_estimator = latency_estimator.LatencyEstimator(self.he_params, self.he_op,
