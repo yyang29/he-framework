@@ -43,44 +43,46 @@ class Explorer:
     THROUGHPUT_PERMUTE_RANGE = list(throughput_permute_range_generator)
     logger.debug(f"Permute pipeline sweeping range: {THROUGHPUT_PERMUTE_RANGE}")
 
-    # a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints)
-    # l_estimator = latency_estimator.LatencyEstimator(self.he_params, self.he_op,
-    #                                                  self.constraints)
+    a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints)
+    l_estimator = latency_estimator.LatencyEstimator(self.he_params, self.he_op,
+                                                     self.constraints)
 
-    # for num_alus in NUM_ALUS_RANGE:
-    #   for permute_throughput in THROUGHPUT_PERMUTE_RANGE:
-    #     max_coefficients_per_cycle = max(num_alus, permute_throughput)
-    #     scratchpad_bank_width_bytes = (
-    #         max_coefficients_per_cycle //
-    #         utils.get_coefficients_per_uram_row(self.he_params) *
-    #         platform_constants.URAM_WIDTH_BYTES)
-    #     # Does not make sense if less than 128B
-    #     scratchpad_bank_width_bytes = max(scratchpad_bank_width_bytes, 128)
-    #     assert (max_coefficients_per_cycle %
-    #             utils.get_coefficients_per_uram_row(self.he_params) == 0)
-    #     scratchpad_num_banks = self._get_minimal_number_banks()
-    #     scratchpad_start_bytes = (
-    #         scratchpad_bank_width_bytes * scratchpad_num_banks *
-    #         platform_constants.BRAM_DEPTH_WIDE_COEFFICIENT)
-    #     scratchpad_step_bytes = (scratchpad_bank_width_bytes *
-    #                              scratchpad_num_banks *
-    #                              platform_constants.BRAM_DEPTH_WIDE_COEFFICIENT)
-    #     scratchpad_step_bytes = max(scratchpad_step_bytes,
-    #                                 utils.get_limb_size_bytes(self.he_params))
-    #     scratchpad_size_range_generator = range(
-    #         scratchpad_start_bytes, platform_constants.MAX_SRAM_SIZE_BYTES,
-    #         scratchpad_step_bytes)
+    for num_alus in NUM_ALUS_RANGE:
+      for permute_throughput in THROUGHPUT_PERMUTE_RANGE:
+        max_coefficients_per_cycle = max(num_alus, permute_throughput)
+        scratchpad_bank_width_bytes = (
+            max_coefficients_per_cycle //
+            utils.get_coefficients_per_uram_row(self.he_params) *
+            platform_constants.URAM_WIDTH_BYTES)
+        # Does not make sense if less than 32B
+        # scratchpad_bank_width_bytes = max(scratchpad_bank_width_bytes, 32)
+        assert (max_coefficients_per_cycle %
+                utils.get_coefficients_per_uram_row(self.he_params) == 0)
+        scratchpad_num_banks = self._get_minimal_number_banks()
+        scratchpad_start_bytes = (
+            scratchpad_bank_width_bytes * scratchpad_num_banks *
+            platform_constants.BRAM_DEPTH_WIDE_COEFFICIENT)
+        scratchpad_step_bytes = (scratchpad_bank_width_bytes *
+                                 scratchpad_num_banks *
+                                 platform_constants.BRAM_DEPTH_WIDE_COEFFICIENT)
+        scratchpad_step_bytes = max(scratchpad_step_bytes,
+                                    utils.get_limb_size_bytes(self.he_params))
+        scratchpad_size_range_generator = range(
+            scratchpad_start_bytes, platform_constants.MAX_SRAM_SIZE_BYTES,
+            scratchpad_step_bytes)
 
-    #     SCRATCHPAD_SIZE_RANGE = list(scratchpad_size_range_generator)
+        SCRATCHPAD_SIZE_RANGE = list(scratchpad_size_range_generator)
+        logger.debug(f"Scratchpad sweeping range: {SCRATCHPAD_SIZE_RANGE}")
 
-    #     for scratchpad_size_bytes in SCRATCHPAD_SIZE_RANGE:
-    #       design_params = design_parameters.DesignParameters(
-    #           num_alus, permute_throughput, scratchpad_size_bytes,
-    #           scratchpad_bank_width_bytes, scratchpad_num_banks)
-    #       print(f"num_alus: {num_alus}, "
-    #             f"permute_throughput: {permute_throughput}, "
-    #             f"scratchpad bank width bytes: {scratchpad_bank_width_bytes}, "
-    #             f"Scratchpad size bytes: {scratchpad_size_bytes}")
+        for scratchpad_size_bytes in SCRATCHPAD_SIZE_RANGE:
+          design_params = design_parameters.DesignParameters(
+              num_alus, permute_throughput, scratchpad_size_bytes,
+              scratchpad_bank_width_bytes, scratchpad_num_banks)
+          logger.info(
+              f"num_alus: {num_alus}, "
+              f"permute_throughput: {permute_throughput}, "
+              f"scratchpad bank width bytes: {scratchpad_bank_width_bytes}, "
+              f"Scratchpad size bytes: {scratchpad_size_bytes}")
     #       # estimate area
     #       area = a_estimator.estimate_area(design_params)
     #       if not self._meet_area_constraints(area):
@@ -116,6 +118,8 @@ class Explorer:
 
   def _get_minimal_number_banks(self):
     # keep number of banks constant for now
+    # At least we need 2 read banks to sustain 2 operands and 1 read bank
+    # to produce data to DRAM
     return 4
 
   def _meet_area_constraints(self, area):

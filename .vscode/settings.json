@@ -1,5 +1,13 @@
 {
     "cSpell.words": [
         "dnum"
-    ]
+    ],
+    "[python]": {
+        "diffEditor.ignoreTrimWhitespace": false,
+        "editor.defaultFormatter": "eeyore.yapf",
+        "editor.formatOnSaveMode": "file",
+        "editor.formatOnSave": true,
+        "editor.wordBasedSuggestions": "currentDocument",
+        "files.trimTrailingWhitespace": true,
+    },
 }
