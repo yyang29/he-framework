@@ -43,7 +43,8 @@ class Explorer:
     THROUGHPUT_PERMUTE_RANGE = list(throughput_permute_range_generator)
     logger.debug(f"Permute pipeline sweeping range: {THROUGHPUT_PERMUTE_RANGE}")
 
-    a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints)
+    a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints,
+                                               logger)
     l_estimator = latency_estimator.LatencyEstimator(self.he_params, self.he_op,
                                                      self.constraints)
 
@@ -83,8 +84,8 @@ class Explorer:
               f"permute_throughput: {permute_throughput}, "
               f"scratchpad bank width bytes: {scratchpad_bank_width_bytes}, "
               f"Scratchpad size bytes: {scratchpad_size_bytes}")
-    #       # estimate area
-    #       area = a_estimator.estimate_area(design_params)
+          # estimate area
+          area = a_estimator.estimate_area(design_params)
     #       if not self._meet_area_constraints(area):
     #         continue
 

@@ -20,9 +20,10 @@ class AreaEstimator:
 
   design_params = None
 
-  def __init__(self, he_params, constraints):
+  def __init__(self, he_params, constraints, logger=None):
     self.he_params = he_params
     self.constraints = constraints
+    self.logger = logger
     if self.he_params.log_q_i == 62:
       self.dsp_per_alu = platform_constants.NUM_DSPS_WIDE_COEFFICIENT
     elif self.he_params.log_q_i == 32:
@@ -38,13 +39,14 @@ class AreaEstimator:
     num_urams = self._estimate_uram_for_scratch()
     num_brams = self._estimate_bram_for_spn()
 
-    print(f"URAM for scratch: {num_urams}")
-    print(f"BRAM for spn: {num_brams}")
+    self.logger.debug(f"DSP for ALU: {num_dsps}")
+    self.logger.debug(f"URAM for scratch: {num_urams}")
+    self.logger.debug(f"BRAM for spn: {num_brams}")
 
     if self.scratch_depth_needed != 0:
       num_brams += self._estimate_bram_for_scratch()
 
-    print(f"BRAM for spn + scratch: {num_brams}")
+    self.logger.debug(f"BRAM for spn + scratch: {num_brams}")
 
     return Area(num_urams, num_brams, num_dsps)
 
@@ -78,9 +80,10 @@ class AreaEstimator:
     total_urams = urams_horizontal * urams_vertical * self.design_params.scratchpad_banks
 
     if total_urams > self.constraints.uram:
-      allocated_depth = (self.constraints.uram // urams_horizontal //
-                         self.design_params.scratchpad_banks *
-                         platform_constants.URAM_DEPTH)
+      allocated_depth = (
+          self.constraints.uram //
+          (urams_horizontal * self.design_params.scratchpad_banks) *
+          platform_constants.URAM_DEPTH)
       self.scratch_depth_needed = self.scratch_depth_needed - allocated_depth
       return self.constraints.uram
     else:

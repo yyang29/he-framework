@@ -9,7 +9,7 @@ import os
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger('framework_dse')
-logger.setLevel("INFO")
+logger.setLevel("DEBUG")
 
 
 def parse_input_csv(input_file):
