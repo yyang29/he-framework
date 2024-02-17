@@ -7,10 +7,11 @@ import math
 class LatencyEstimator:
   design_params = None
 
-  def __init__(self, he_params, op, constraints):
+  def __init__(self, he_params, op, constraints, logger=None):
     self.he_params = he_params
     self.op = op
     self.constraints = constraints
+    self.logger = logger
     self.derating_factor = 1.18
 
   def estimate_latency(self, design_params):

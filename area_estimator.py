@@ -1,6 +1,12 @@
 import platform_constants
 
+import logging
 import math
+import os
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger('area_estimator')
+logger.setLevel("INFO")
 
 
 class Area:
@@ -11,19 +17,18 @@ class Area:
     self.num_dsps = num_dsps
 
   def display_area(self):
-    print(f"DSP (instances): {self.num_dsps}")
-    print(f"URAM (instances): {self.num_urams}")
-    print(f"BRAM (instances): {self.num_brams}")
+    logger.info(f"DSP (instances): {self.num_dsps}, "
+                f"URAM (instances): {self.num_urams}, "
+                f"BRAM (instances): {self.num_brams}")
 
 
 class AreaEstimator:
 
   design_params = None
 
-  def __init__(self, he_params, constraints, logger=None):
+  def __init__(self, he_params, constraints):
     self.he_params = he_params
     self.constraints = constraints
-    self.logger = logger
     if self.he_params.log_q_i == 62:
       self.dsp_per_alu = platform_constants.NUM_DSPS_WIDE_COEFFICIENT
     elif self.he_params.log_q_i == 32:
@@ -39,14 +44,14 @@ class AreaEstimator:
     num_urams = self._estimate_uram_for_scratch()
     num_brams = self._estimate_bram_for_spn()
 
-    self.logger.debug(f"DSP for ALU: {num_dsps}")
-    self.logger.debug(f"URAM for scratch: {num_urams}")
-    self.logger.debug(f"BRAM for spn: {num_brams}")
+    logger.debug(f"DSP for ALU: {num_dsps}")
+    logger.debug(f"URAM for scratch: {num_urams}")
+    logger.debug(f"BRAM for spn: {num_brams}")
 
     if self.scratch_depth_needed != 0:
       num_brams += self._estimate_bram_for_scratch()
 
-    self.logger.debug(f"BRAM for spn + scratch: {num_brams}")
+    logger.debug(f"BRAM for spn + scratch: {num_brams}")
 
     return Area(num_urams, num_brams, num_dsps)
 

@@ -6,6 +6,11 @@ import utils
 
 import csv
 import logging
+import os
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger('explorer')
+logger.setLevel("INFO")
 
 
 def generate_range(min_value, max_value):
@@ -27,8 +32,8 @@ class Explorer:
         "area": None,
     }
 
-  def explore_design_space(self, output_file, logger):
-    logger.info("Start running design space exploration...\n")
+  def explore_design_space(self, output_file):
+    logger.info("Start running design space exploration...")
 
     file = open(output_file, 'w', newline='')
     writer = csv.writer(file)
@@ -43,8 +48,7 @@ class Explorer:
     THROUGHPUT_PERMUTE_RANGE = list(throughput_permute_range_generator)
     logger.debug(f"Permute pipeline sweeping range: {THROUGHPUT_PERMUTE_RANGE}")
 
-    a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints,
-                                               logger)
+    a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints)
     l_estimator = latency_estimator.LatencyEstimator(self.he_params, self.he_op,
                                                      self.constraints)
 
@@ -80,16 +84,16 @@ class Explorer:
               num_alus, permute_throughput, scratchpad_size_bytes,
               scratchpad_bank_width_bytes, scratchpad_num_banks)
           logger.info(
-              f"num_alus: {num_alus}, "
+              f"design point == num_alus: {num_alus}, "
               f"permute_throughput: {permute_throughput}, "
               f"scratchpad bank width bytes: {scratchpad_bank_width_bytes}, "
               f"Scratchpad size bytes: {scratchpad_size_bytes}")
           # estimate area
           area = a_estimator.estimate_area(design_params)
-    #       if not self._meet_area_constraints(area):
-    #         continue
+          if not self._meet_area_constraints(area):
+            continue
 
-    #       area.display_area()
+          area.display_area()
 
     #       # estimate latency
     #       latency = l_estimator.estimate_latency(design_params)

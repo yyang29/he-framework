@@ -9,7 +9,7 @@ import os
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger('framework_dse')
-logger.setLevel("DEBUG")
+logger.setLevel("INFO")
 
 
 def parse_input_csv(input_file):
@@ -46,7 +46,7 @@ def run_design_space_exploration(parsed_input, he_op, output_file):
   exploration_constraints.display_constraints()
 
   dse = explorer.Explorer(he_params, he_op, exploration_constraints)
-  dse.explore_design_space(output_file, logger)
+  dse.explore_design_space(output_file)
 
 
 if __name__ == "__main__":
