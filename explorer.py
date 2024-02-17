@@ -90,17 +90,16 @@ class Explorer:
               f"Scratchpad size bytes: {scratchpad_size_bytes}")
           # estimate area
           area = a_estimator.estimate_area(design_params)
+          area.display_area()
           if not self._meet_area_constraints(area):
+            logger.info(f"Design point does not meet area constraints!")
             continue
 
-          area.display_area()
-
-    #       # estimate latency
-    #       latency = l_estimator.estimate_latency(design_params)
-    #       if not self._meet_latency_constraints(latency):
-    #         continue
-
-    #       print(f"latency: {latency}\n")
+          # estimate latency
+          latency = l_estimator.estimate_latency(design_params)
+          if not self._meet_latency_constraints(latency):
+            logger.info(f"Design point does not meet latency constraints!")
+            continue
 
     #       writer.writerow([
     #           latency, area.num_dsps, area.num_urams, area.num_brams,

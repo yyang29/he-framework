@@ -1,7 +1,13 @@
 import platform_constants
 import utils
 
+import logging
 import math
+import os
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger('latency_estimator')
+logger.setLevel("DEBUG")
 
 
 class LatencyEstimator:
@@ -12,14 +18,16 @@ class LatencyEstimator:
     self.op = op
     self.constraints = constraints
     self.logger = logger
-    self.derating_factor = 1.18
+    self.derating_factor = 1.08
 
   def estimate_latency(self, design_params):
     self.design_params = design_params
 
     if self.op == "CtCtAdd" or self.op == "CtCtSub":
-      return self._estimate_limb_elementwise(
+      latency_us = self._estimate_limb_elementwise(
           platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L)
+      logger.info(f"{self.op} takes {latency_us} us.")
+      return latency_us
 
     elif self.op == "CtCtMult":
       pass
@@ -115,6 +123,10 @@ class LatencyEstimator:
     compute_time_us = (
         num_limbs * (self.he_params.N / self.design_params.num_modular_alus) *
         utils.get_cycle_us(self.constraints.frequency_mhz))
+    logger.debug(f"_estimate_limb_elementwise: "
+                 f"compute_time_us: {compute_time_us}, "
+                 f"memory_read_time_us: {memory_read_time_us}, "
+                 f"memory_write_time_us: {memory_write_time_us}")
 
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)

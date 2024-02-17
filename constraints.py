@@ -1,3 +1,11 @@
+import logging
+import os
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger('constraints')
+logger.setLevel("DEBUG")
+
+
 class Constraints:
   # Class members
   latency_us = None
@@ -17,10 +25,10 @@ class Constraints:
     self.frequency_mhz = frequency_mhz
 
   def display_constraints(self):
-    print("Exploration constraints are shown below.")
-    print(f"\tLatency (us): {self.latency}")
-    print(f"\tURAM (instances): {self.uram}")
-    print(f"\tBRAM (instances): {self.bram}")
-    print(f"\tDSP: {self.dsp}")
-    print(f"\tBandwidth (GB/s): {self.bandwidth_gbps}")
-    print(f"\tFrequency (MHz): {self.frequency_mhz}")
+    logger.info("Exploration constraints are shown below.")
+    logger.info(f"\tLatency (us): {self.latency}")
+    logger.info(f"\tURAM (instances): {self.uram}")
+    logger.info(f"\tBRAM (instances): {self.bram}")
+    logger.info(f"\tDSP: {self.dsp}")
+    logger.info(f"\tBandwidth (GB/s): {self.bandwidth_gbps}")
+    logger.info(f"\tFrequency (MHz): {self.frequency_mhz}")
