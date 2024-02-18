@@ -101,11 +101,11 @@ class Explorer:
             logger.info(f"Design point does not meet latency constraints!")
             continue
 
-          # writer.writerow([
-          #     latency, area.num_dsps, area.num_urams, area.num_brams,
-          #     design_params.num_modular_alus, design_params.permute_throughput,
-          #     design_params.scratchpad_size_bytes
-          # ])
+          writer.writerow([
+              latency, area.num_dsps, area.num_urams, area.num_brams,
+              design_params.num_modular_alus, design_params.permute_throughput,
+              design_params.scratchpad_size_bytes
+          ])
 
     #       if self.best_design["latency"] is None:
     #         self.best_design["design_params"] = design_params
