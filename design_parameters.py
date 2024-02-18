@@ -1,4 +1,10 @@
+import logging
 import math
+import os
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger('design_parameters')
+logger.setLevel("INFO")
 
 
 class DesignParameters:
@@ -18,6 +24,6 @@ class DesignParameters:
                                        self.scratchpad_banks)
 
   def display_parameters(self):
-    print(f"NumAlu: {self.num_modular_alus}")
-    print(f"PermTput: {self.permute_throughput}")
-    print(f"ScratchSize: {self.scratchpad_size_bytes}")
+    logger.info(f"NumAlu: {self.num_modular_alus}, "
+                f"PermTput: {self.permute_throughput}, "
+                f"ScratchSize: {self.scratchpad_size_bytes}")

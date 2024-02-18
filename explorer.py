@@ -118,7 +118,8 @@ class Explorer:
             self.best_design["area"] = area
             logger.info("Updated best design.")
 
-    logger.info(f"DSE finished. best design latency: {self.best_design["latency"]}")
+    logger.info(
+        f"DSE finished. Best design latency: {self.best_design['latency']} us.")
     self.best_design["area"].display_area()
     self.best_design["design_params"].display_parameters()
 
