@@ -20,6 +20,12 @@ class LatencyEstimator:
     self.logger = logger
     self.derating_factor = 1.08
 
+    # scratchpad data reuse policy:
+    # first, reuse twiddle factors
+    # then, reuse 1/2 ciphertext across sub-routines
+    # then, reuse KSK plaintext (column by column)
+    # then, alpha limbs for basis conversion
+
   def estimate_latency(self, design_params):
     self.design_params = design_params
 
