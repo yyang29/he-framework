@@ -101,24 +101,26 @@ class Explorer:
             logger.info(f"Design point does not meet latency constraints!")
             continue
 
-          # writer.writerow([
-          #     latency, area.num_dsps, area.num_urams, area.num_brams,
-          #     design_params.num_modular_alus, design_params.permute_throughput,
-          #     design_params.scratchpad_size_bytes
-          # ])
+          writer.writerow([
+              latency, area.num_dsps, area.num_urams, area.num_brams,
+              design_params.num_modular_alus, design_params.permute_throughput,
+              design_params.scratchpad_size_bytes
+          ])
 
-    #       if self.best_design["latency"] is None:
-    #         self.best_design["design_params"] = design_params
-    #         self.best_design["latency"] = latency
-    #         self.best_design["area"] = area
-    #       elif latency < self.best_design["latency"]:
-    #         self.best_design["design_params"] = design_params
-    #         self.best_design["latency"] = latency
-    #         self.best_design["area"] = area
+          if self.best_design["latency"] is None:
+            self.best_design["design_params"] = design_params
+            self.best_design["latency"] = latency
+            self.best_design["area"] = area
+            logger.info("Updated best design due to initialization.")
+          elif latency < self.best_design["latency"]:
+            self.best_design["design_params"] = design_params
+            self.best_design["latency"] = latency
+            self.best_design["area"] = area
+            logger.info("Updated best design.")
 
-    # print(self.best_design["latency"])
-    # self.best_design["area"].display_area()
-    # self.best_design["design_params"].display_parameters()
+    logger.info(f"DSE finished. best design latency: {self.best_design["latency"]}")
+    self.best_design["area"].display_area()
+    self.best_design["design_params"].display_parameters()
 
   def _get_minimal_number_banks(self):
     # keep number of banks constant for now
