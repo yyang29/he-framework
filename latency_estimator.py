@@ -130,7 +130,7 @@ class LatencyEstimator:
       #    store L limbs + y set of tf
       #  else
       #    store L limbs and twiddle factors
-      num_limbs = platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L
+      L = self.he_params.L
       num_limbs_available = self._get_max_num_limbs_in_scratchpad()
       if num_limbs_available <= self.he_params.L:
         intt_output_limbs_in_scratchpad = num_limbs_available
@@ -162,25 +162,23 @@ class LatencyEstimator:
 
       # Polynomial 0
       p0_latency_intt = self._estimate_ntt_new(
-          num_limbs, num_limbs, num_limbs - intt_output_limbs_in_scratchpad,
-          num_limbs)
+          L, L, L - intt_output_limbs_in_scratchpad, L)
       p0_latency_base_conv = self._estimate_base_conv_new(
-          num_limbs, num_limbs - 1, num_limbs - intt_output_limbs_in_scratchpad,
-          num_limbs - 1 - baseconv_output_limbs_in_scratchpad)
+          L, L - 1, L - intt_output_limbs_in_scratchpad,
+          L - 1 - baseconv_output_limbs_in_scratchpad)
       p0_latency_ntt = self._estimate_ntt_new(
-          num_limbs - 1, num_limbs - 1 - baseconv_output_limbs_in_scratchpad,
-          num_limbs - 1, num_limbs - 1)
+          L - 1, L - 1 - baseconv_output_limbs_in_scratchpad, L - 1, L - 1)
       p0_latency_us = p0_latency_intt + p0_latency_base_conv + p0_latency_ntt
       # Polynomial 1
       p1_latency_intt = self._estimate_ntt_new(
-          num_limbs, num_limbs, num_limbs - intt_output_limbs_in_scratchpad,
-          num_limbs - intt_tf_sets_in_scratchpad)
+          L, L, L - intt_output_limbs_in_scratchpad,
+          L - intt_tf_sets_in_scratchpad)
       p1_latency_base_conv = self._estimate_base_conv_new(
-          num_limbs, num_limbs - 1, num_limbs - intt_output_limbs_in_scratchpad,
-          num_limbs - 1 - baseconv_output_limbs_in_scratchpad)
+          L, L - 1, L - intt_output_limbs_in_scratchpad,
+          L - 1 - baseconv_output_limbs_in_scratchpad)
       p1_latency_ntt = self._estimate_ntt_new(
-          num_limbs - 1, num_limbs - 1 - baseconv_output_limbs_in_scratchpad,
-          num_limbs - 1, num_limbs - 1 - ntt_tf_sets_in_scratchpad)
+          L - 1, L - 1 - baseconv_output_limbs_in_scratchpad, L - 1,
+          L - 1 - ntt_tf_sets_in_scratchpad)
       p1_latency_us = p1_latency_intt + p1_latency_base_conv + p1_latency_ntt
 
       latency_us = p0_latency_us + p1_latency_us
