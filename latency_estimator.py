@@ -338,6 +338,9 @@ class LatencyEstimator:
     compute_time_us = (max(alu_cycles, permute_cycles) *
                        utils.get_cycle_us(self.constraints.frequency_mhz))
 
+    logger.debug(f"compute time (us): {compute_time_us}, "
+                 f"memory read time (us): {memory_read_time_us} "
+                 f"memory write time (us): {memory_write_time_us}.")
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)
 
@@ -365,6 +368,9 @@ class LatencyEstimator:
         (self.he_params.N / self.design_params.num_modular_alus) *
         utils.get_cycle_us(self.constraints.frequency_mhz))
 
+    logger.debug(f"compute time (us): {compute_time_us}, "
+                 f"memory read time (us): {memory_read_time_us} "
+                 f"memory write time (us): {memory_write_time_us}.")
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)
 
