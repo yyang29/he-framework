@@ -127,20 +127,37 @@ class LatencyEstimator:
       #    "2L due to the fact that we need to read L limbs and write L limbs per polynomial"
       #    store x limbs (x = S / sizeof(limb) / 2)
       #  elif sizeof(2L limbs) < S < sizeof(2L limbs) + sizeof(tw)
-      #    store L limbs + y set of tw
+      #    store L limbs + y set of tf
       #  else
       #    store L limbs and twiddle factors
       num_limbs = platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L
-      tf_reuse_ratio = 0.0
-      if (self.design_params.scratchpad_size_bytes
-          > utils.get_plaintext_size_bytes(self.he_params)):
-        tf_reuse_ratio = 0.5
-      latency_intt = self._estimate_ntt(num_limbs, self.he_params.L,
-                                        tf_reuse_ratio)
-      latency_base_conv = self._estimate_base_conv(num_limbs, num_limbs,
-                                                   num_limbs - 1)
-      latency_ntt = self._estimate_ntt(num_limbs - 1, self.he_params.L - 1,
-                                       tf_reuse_ratio)
+      max_num_limbs_in_scratchpad = self._get_max_num_limbs_in_scratchpad()
+      if max_num_limbs_in_scratchpad <= 2 * self.he_params.L:
+        limbs_in_scratchpad = max_num_limbs_in_scratchpad // 2
+        intt_tf_sets_in_scratchpad = (max_num_limbs_in_scratchpad -
+                                      2 * self.he_params.L)
+        ntt_tf_sets_in_scratchpad = ...
+
+      # Polynomial 0
+      latency_intt = self._estimate_ntt_new(num_limbs, num_limbs,
+                                            num_limbs - scratchpad_limbs,
+                                            num_limbs)
+      latency_base_conv = self._estimate_base_conv_new(
+          num_limbs, num_limbs - 1, num_limbs - scratchpad_limbs,
+          num_limbs - scratchpad_limbs, num_limbs - 1)
+      latency_ntt = self._estimate_ntt_new(num_limbs - 1,
+                                           num_limbs - scratchpad_limbs,
+                                           num_limbs - 1, num_limbs - 1)
+      # Polynomial 1
+      latency_intt = self._estimate_ntt_new(num_limbs, num_limbs,
+                                            num_limbs - scratchpad_limbs,
+                                            num_limbs)
+      latency_base_conv = self._estimate_base_conv_new(
+          num_limbs, num_limbs - 1, num_limbs - scratchpad_limbs,
+          num_limbs - scratchpad_limbs, num_limbs - 1)
+      latency_ntt = self._estimate_ntt_new(num_limbs - 1,
+                                           num_limbs - scratchpad_limbs,
+                                           num_limbs - 1, num_limbs - 1)
 
       latency_us = latency_intt + latency_base_conv + latency_ntt
       logger.info(f"{self.op} takes {latency_us} us.")
@@ -318,3 +335,11 @@ class LatencyEstimator:
                      memory_read_time_us + memory_write_time_us)
 
     return latency_us * self.derating_factor
+
+  def _get_max_num_limbs_in_scratchpad(self):
+    limb_size_bytes = utils.get_limb_size_bytes(self.he_params)
+    scratchpad_size_bytes = self.design_params.scratchpad_size_bytes
+
+    num_limbs = scratchpad_size_bytes // limb_size_bytes
+    logger.debug(f"Design point can store {num_limbs} limbs.")
+    return num_limbs
