@@ -328,9 +328,7 @@ class LatencyEstimator:
         self.he_params) * num_limbs_write
     memory_write_time_us = total_write_bytes / self.constraints.bandwidth_gbps / 1e3
 
-    # Factor of "1.5" in the alu_cycles to indicate the mult and add/sub require
-    # separate issue slots.
-    alu_cycles = (1.5 * num_limbs * math.log2(self.he_params.N) *
+    alu_cycles = (num_limbs * math.log2(self.he_params.N) *
                   (self.he_params.N / self.design_params.num_modular_alus))
     permute_cycles = (
         num_limbs * math.log2(self.he_params.N) *
@@ -341,6 +339,10 @@ class LatencyEstimator:
     logger.debug(f"compute time (us): {compute_time_us}, "
                  f"memory read time (us): {memory_read_time_us} "
                  f"memory write time (us): {memory_write_time_us}.")
+    if compute_time_us > memory_read_time_us + memory_write_time_us:
+      logger.debug(f"NTT/INTT is compute bound.")
+    else:
+      logger.debug(f"NTT/INTT is memory bound.")
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)
 
@@ -348,15 +350,15 @@ class LatencyEstimator:
 
   def _estimate_base_conv_new(self, num_input_limbs, num_output_limbs,
                               num_limbs_read, num_limbs_write):
-    # For base conversion, we store (num_input_limbs - num_limbs_read) limbs
-    # in the scratchpad. They are reused by num_output_limbs times.
-    # For the other limbs, they have to be streamed to DRAM once for each
-    # output limb.
     logger.debug(f"Estimating base conversion latency. "
                  f"num_input_limbs={num_input_limbs} "
                  f"num_output_limbs={num_output_limbs} "
                  f"num_limbs_read={num_limbs_read} "
                  f"num_limbs_write={num_limbs_write}.")
+    # For base conversion, we store (num_input_limbs - num_limbs_read) limbs
+    # in the scratchpad. They are reused by num_output_limbs times.
+    # For the other limbs, they have to be streamed to DRAM once for each
+    # output limb.
     memory_read_time_us = (utils.get_limb_size_bytes(self.he_params) *
                            num_limbs_read * num_output_limbs /
                            self.constraints.bandwidth_gbps / 1e3)
@@ -371,6 +373,10 @@ class LatencyEstimator:
     logger.debug(f"compute time (us): {compute_time_us}, "
                  f"memory read time (us): {memory_read_time_us} "
                  f"memory write time (us): {memory_write_time_us}.")
+    if compute_time_us > memory_read_time_us + memory_write_time_us:
+      logger.debug(f"base_conv is compute bound.")
+    else:
+      logger.debug(f"base_conv is memory bound.")
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)
 

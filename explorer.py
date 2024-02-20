@@ -10,7 +10,7 @@ import os
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger('explorer')
-logger.setLevel("INFO")
+logger.setLevel("DEBUG")
 
 
 def generate_range(min_value, max_value):
