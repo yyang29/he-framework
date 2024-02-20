@@ -10,7 +10,7 @@ import os
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger('explorer')
-logger.setLevel("DEBUG")
+logger.setLevel("INFO")
 
 
 def generate_range(min_value, max_value):
@@ -37,8 +37,10 @@ class Explorer:
 
     file = open(output_file, 'w', newline='')
     writer = csv.writer(file)
-    writer.writerow(
-        ["latency", "dsp", "uram", "bram", "NumAlu", "PermTput", "ScratchSize"])
+    writer.writerow([
+        "id", "latency", "dsp", "uram", "bram", "NumAlu", "PermTput",
+        "ScratchSize"
+    ])
 
     alu_range_generator = generate_range(1, 512)
     NUM_ALUS_RANGE = list(alu_range_generator)
@@ -51,6 +53,7 @@ class Explorer:
     a_estimator = area_estimator.AreaEstimator(self.he_params, self.constraints)
     l_estimator = latency_estimator.LatencyEstimator(self.he_params, self.he_op,
                                                      self.constraints)
+    id = 0
 
     for num_alus in NUM_ALUS_RANGE:
       for permute_throughput in THROUGHPUT_PERMUTE_RANGE:
@@ -84,10 +87,10 @@ class Explorer:
               num_alus, permute_throughput, scratchpad_size_bytes,
               scratchpad_bank_width_bytes, scratchpad_num_banks)
           logger.info(
-              f"design point == num_alus: {num_alus}, "
-              f"permute_throughput: {permute_throughput}, "
-              f"scratchpad bank width bytes: {scratchpad_bank_width_bytes}, "
-              f"Scratchpad size bytes: {scratchpad_size_bytes}")
+              f"design point {id}: num_alus = {num_alus}, "
+              f"permute_throughput = {permute_throughput}, "
+              f"scratchpad bank width bytes = {scratchpad_bank_width_bytes}, "
+              f"Scratchpad size bytes = {scratchpad_size_bytes}")
           # estimate area
           area = a_estimator.estimate_area(design_params)
           area.display_area()
@@ -102,7 +105,7 @@ class Explorer:
             continue
 
           writer.writerow([
-              latency, area.num_dsps, area.num_urams, area.num_brams,
+              id, latency, area.num_dsps, area.num_urams, area.num_brams,
               design_params.num_modular_alus, design_params.permute_throughput,
               design_params.scratchpad_size_bytes
           ])
@@ -117,6 +120,8 @@ class Explorer:
             self.best_design["latency"] = latency
             self.best_design["area"] = area
             logger.info("Updated best design.")
+
+          id += 1
 
     logger.info(
         f"DSE finished. Best design latency: {self.best_design['latency']} us.")
