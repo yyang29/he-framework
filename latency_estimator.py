@@ -118,7 +118,7 @@ class LatencyEstimator:
       latency_moddown_intt = self._estimate_ntt_new(
           alpha * beta + k - 1,
           alpha * beta + k - 1 - kskinnerprod_output_limbs_in_scratchpad,
-          alpha * beta + k - 1 - moddown_intt_output_limbs_in_scratchpad)
+          alpha * beta + k - 1 - moddown_intt_output_limbs_in_scratchpad, 0)
       latency_moddown_intt *= 2
 
       latency_moddown_base_conv = self._estimate_base_conv_new(
@@ -129,7 +129,7 @@ class LatencyEstimator:
 
       latency_moddown_ntt = self._estimate_ntt_new(
           L - 1, L - 1 - moddown_baseconv_output_limbs_in_scratchpad,
-          L - 1 - moddown_ntt_output_limbs_in_scratchpad)
+          L - 1 - moddown_ntt_output_limbs_in_scratchpad, 0)
       latency_moddown_ntt *= 2
 
       return (latency_decomp + latency_modup_intt + latency_modup_base_conv +
