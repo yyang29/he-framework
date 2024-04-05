@@ -7,7 +7,7 @@ import os
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger('latency_estimator')
-logger.setLevel("DEBUG")
+logger.setLevel("INFO")
 
 
 class LatencyEstimator:
@@ -18,7 +18,7 @@ class LatencyEstimator:
     self.op = op
     self.constraints = constraints
     self.logger = logger
-    self.derating_factor = 1.08
+    self.derating_factor = 1.05
 
     # scratchpad data reuse policy:
     # first, reuse twiddle factors
@@ -31,6 +31,8 @@ class LatencyEstimator:
 
     if self.op == "CtCtAdd" or self.op == "CtCtSub":
       latency_us = self._estimate_limb_elementwise(
+          platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
+          platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
           platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L)
       logger.info(f"{self.op} takes {latency_us} us.")
       return latency_us
@@ -42,108 +44,130 @@ class LatencyEstimator:
       pass
 
     elif self.op == "KeySwitch":
-      # Scratchpad (S) strategy
-      #  Reuse: base conversion (L limbs)
-      #  Reuse: producer - consumer between sub-routines
-      #  Reuse: twiddle factors in NTT and INTT respectively
-      # Processing flow
-      #  Process the 1st polynomial first, then go to the 2nd polynomial
-      #  if S < sizeof(2L limbs)
-      #    "2L due to the fact that we need to read L limbs and write L limbs per polynomial"
-      #    store x limbs (x = S / sizeof(limb) / 2)
-      #  elif sizeof(2L limbs) < S < sizeof(2L limbs) + sizeof(tw)
-      #    store L limbs + y set of tw
-      #  else
-      #    store L limbs and twiddle factors
-      pass
-      # alpha = self.he_params.alpha
-      # beta = self.he_params.beta
-      # k = self.he_params.k
-      # decomp_output_fused = False
-      # modup_ntt_output_fused = False
-      # inner_prod_output_fused = False
-      # moddown_ntt_output_fused = False
+      # The dataflow is one digit at a time.
+      # Fuse all the sub-routines until KskInnerProd.
+      # For KskInnerProd, we store the two partial sums on-chip (if available).
+      # Each partial sum has (alpha * beta + k - 1) limbs.
+      # Then we perform ModDown on the first polynomial (alpha * beta + k - 1) limbs.
+      # Then we perform ModDown on the second polynomial, and fuse with the final
+      # addition.
+      # ---- Scratchpad Allocation Policy
+      # 1st -- alpha limbs --> fuse with INTT immediately
+      # 2nd -- base conv, fuse with NTT immediately fuse with KskInnerProd
+      #     -- alpha limbs can be evicted.
+      #     -- if have space for 2 * (alpha * beta + k - 1) limbs, run ModDown
+      L = self.he_params.L
+      alpha = self.he_params.alpha
+      beta = self.he_params.beta
+      k = self.he_params.k
+      num_limbs_available = self._get_max_num_limbs_in_scratchpad()
 
-      # decomp_output_bytes = utils.get_limb_size_bytes(
-      #     self.he_params) * self.he_params.L
-      # if self.design_params.scratchpad_size_bytes > decomp_output_bytes * 2:
-      #   decomp_output_fused = True
+      # Dataflow planning goes below
+      # decomp fused with INTT next, no write out to DRAM
+      decomp_output_limbs_in_scratchpad = alpha
+      if num_limbs_available > alpha:
+        modup_intt_output_limbs_in_scratchpad = alpha
+      else:
+        modup_intt_output_limbs_in_scratchpad = num_limbs_available
+      # Modup-baseconv fused with ntt next, no need to write out to DRAM
+      modup_baseconv_output_limbs_in_scratchpad = alpha * beta + k - 1
+      # Modup-ntt fused with innerprod next, no need to write out to DRAM
+      modup_ntt_output_limbs_in_scratchpad = alpha * beta + k - 1
+      num_limbs_left = num_limbs_available - modup_intt_output_limbs_in_scratchpad
+      if num_limbs_left > 2 * (alpha * beta + k - 1):
+        kskinnerprod_output_limbs_in_scratchpad = 2 * (alpha * beta + k - 1)
+      else:
+        kskinnerprod_output_limbs_in_scratchpad = num_limbs_left
+      # Moddown INTT get SRAM space if there is lefe over from innerprod.
+      num_limbs_left = num_limbs_available - kskinnerprod_output_limbs_in_scratchpad
+      assert (num_limbs_left >= 0)
+      if num_limbs_left > 2 * (alpha * beta + k - 1):
+        moddown_intt_output_limbs_in_scratchpad = 2 * (alpha * beta + k - 1)
+      else:
+        moddown_intt_output_limbs_in_scratchpad = num_limbs_left
+      # baseconv is fused with NTT next.
+      moddown_baseconv_output_limbs_in_scratchpad = L - 1
+      moddown_ntt_output_limbs_in_scratchpad = 0
 
-      # latency_decomp = self._estimate_decomp(False, decomp_output_fused)
-      # latency_modup_intt = self._estimate_ntt(self.he_params.L, 0.0,
-      #                                         decomp_output_fused, False)
-      # latency_modup_base_conv = self._estimate_base_conv(
-      #     self.he_params.L, beta * (alpha * beta + k - 1),
-      #     beta * (alpha * beta + k - 1 - alpha))
+      latency_decomp = self._estimate_decomp(
+          L, L - decomp_output_limbs_in_scratchpad)
+      latency_decomp *= beta
 
-      # modup_ntt_output_bytes = (utils.get_limb_size_bytes(self.he_params) *
-      #                           beta * (alpha * beta + k - 1))
-      # if self.design_params.scratchpad_size_bytes > modup_ntt_output_bytes:
-      #   modup_ntt_output_fused = True
-      # latency_modup_ntt = self._estimate_ntt(
-      #     beta * (alpha * beta + k - 1 - alpha), 0.0, False,
-      #     modup_ntt_output_fused)
+      latency_modup_intt = self._estimate_ntt_new(
+          alpha, alpha - decomp_output_limbs_in_scratchpad,
+          alpha - modup_intt_output_limbs_in_scratchpad, 0)
+      latency_modup_intt *= beta
 
-      # inner_prod_output_bytes = (utils.get_limb_size_bytes(self.he_params) * 2 *
-      #                            (alpha * beta + k - 1))
-      # if self.design_params.scratchpad_size_bytes > inner_prod_output_bytes:
-      #   inner_prod_output_fused = True
-      # latency_inner_prod = self._estimate_inner_prod(modup_ntt_output_fused,
-      #                                                inner_prod_output_fused)
+      latency_modup_base_conv = self._estimate_base_conv_new(
+          alpha, alpha * beta + k - 1,
+          alpha - modup_intt_output_limbs_in_scratchpad,
+          alpha * beta + k - 1 - modup_baseconv_output_limbs_in_scratchpad)
+      latency_modup_base_conv *= beta
 
-      # latency_moddown_intt = self._estimate_ntt(2 * (alpha * beta + k - 1), 0.0,
-      #                                           inner_prod_output_fused, False)
-      # latency_moddown_base_conv = self._estimate_base_conv(
-      #     2 * (alpha * beta + k - 1), 2 * self.he_params.L,
-      #     2 * self.he_params.L)
+      latency_modup_ntt = self._estimate_ntt_new(
+          alpha * beta + k - 1,
+          alpha * beta + k - 1 - modup_baseconv_output_limbs_in_scratchpad,
+          alpha * beta + k - 1 - modup_ntt_output_limbs_in_scratchpad, 0)
+      latency_modup_ntt *= beta
 
-      # moddown_ntt_output_bytes = (utils.get_limb_size_bytes(self.he_params) *
-      #                             2 * self.he_params.L)
-      # if self.design_params.scratchpad_size_bytes > moddown_ntt_output_bytes:
-      #   moddown_ntt_output_fused = True
-      # latency_moddown_ntt = self._estimate_ntt(2 * self.he_params.L, 0.0, False,
-      #                                          moddown_ntt_output_fused)
+      latency_inner_prod = self._estimate_inner_prod(
+          alpha * beta + k - 1 - modup_ntt_output_limbs_in_scratchpad,
+          alpha * beta + k - 1 - kskinnerprod_output_limbs_in_scratchpad)
+      latency_inner_prod = 2 * beta
 
-      # latency_ct_add = self._estimate_limb_elementwise(
-      #     2 * self.he_params.L, moddown_ntt_output_fused, False)
+      latency_moddown_intt = self._estimate_ntt_new(
+          alpha * beta + k - 1,
+          alpha * beta + k - 1 - kskinnerprod_output_limbs_in_scratchpad,
+          alpha * beta + k - 1 - moddown_intt_output_limbs_in_scratchpad)
+      latency_moddown_intt *= 2
 
-      # print(f"decomp_output_fused: {decomp_output_fused}")
-      # print(f"modup_ntt_output_fused: {modup_ntt_output_fused}")
-      # print(f"inner_prod_output_fused: {inner_prod_output_fused}")
-      # print(f"moddown_ntt_output_fused: {moddown_ntt_output_fused}")
+      latency_moddown_base_conv = self._estimate_base_conv_new(
+          alpha * beta + k - 1, self.he_params.L - 1,
+          alpha * beta + k - 1 - moddown_intt_output_limbs_in_scratchpad,
+          L - 1 - moddown_baseconv_output_limbs_in_scratchpad)
+      latency_moddown_base_conv *= 2
 
-      # return (latency_decomp + latency_modup_intt + latency_modup_base_conv +
-      #         latency_modup_ntt + latency_inner_prod + latency_moddown_intt +
-      #         latency_moddown_base_conv + latency_moddown_ntt + latency_ct_add)
+      latency_moddown_ntt = self._estimate_ntt_new(
+          L - 1, L - 1 - moddown_baseconv_output_limbs_in_scratchpad,
+          L - 1 - moddown_ntt_output_limbs_in_scratchpad)
+      latency_moddown_ntt *= 2
+
+      return (latency_decomp + latency_modup_intt + latency_modup_base_conv +
+              latency_modup_ntt + latency_inner_prod + latency_moddown_intt +
+              latency_moddown_base_conv + latency_moddown_ntt)
 
     elif self.op == "Rescale":
-      # Scratchpad (S) strategy
-      #  Reuse: base conversion (L limbs)
-      #  Reuse: producer - consumer between sub-routines
-      #  Reuse: twiddle factors in NTT and INTT respectively
-      # Processing flow
-      #  Process the 1st polynomial first, then go to the 2nd polynomial
-      #  if S < sizeof(2L limbs)
-      #    "2L due to the fact that we need to read L limbs and write L limbs per polynomial"
-      #    store x limbs (x = S / sizeof(limb) / 2)
-      #  elif sizeof(2L limbs) < S < sizeof(2L limbs) + sizeof(tw)
-      #    store L limbs + y set of tf
-      #  else
-      #    store L limbs and twiddle factors
       L = self.he_params.L
       num_limbs_available = self._get_max_num_limbs_in_scratchpad()
       if num_limbs_available <= self.he_params.L:
+        # Scratchpad allocation policy
+        #  Intt produces num_limbs_available limbs on-chip while streams
+        #  (L-num_limbs_available) limbs to DRAM.
+        #  Baseconv reuse the num_limbs_available limbs and reads (L-num_limbs_available)
+        #  L-1 times, writes out all the output limbs to DRAM.
+        #  No reuse on Intt and Ntt twiddle factors.
         intt_output_limbs_in_scratchpad = num_limbs_available
         baseconv_output_limbs_in_scratchpad = 0
         intt_tf_sets_in_scratchpad = 0
         ntt_tf_sets_in_scratchpad = 0
       elif num_limbs_available <= 2 * self.he_params.L:
+        # Scratchpad allocation policy
+        #  Intt produces num_limbs_available/2 limbs on-chip while streams
+        #  (L-num_limbs_available/2) limbs to DRAM.
+        #  Baseconv reuse the num_limbs_available/2 limbs and reads (L-num_limbs_available/2)
+        #  L-1 times, writes (L-1-num_limbs_available/2) output limbs to DRAM.
+        #  No reuse on Intt and Ntt twiddle factors.
         intt_output_limbs_in_scratchpad = num_limbs_available // 2
         baseconv_output_limbs_in_scratchpad = min(num_limbs_available // 2,
                                                   self.he_params.L - 1)
         intt_tf_sets_in_scratchpad = 0
         ntt_tf_sets_in_scratchpad = 0
       else:
+        # Scratchpad allocation policy
+        #  Intt produces L limbs on-chip while streams 0 limbs to DRAM.
+        #  Baseconv reuses the L limbs and writes 0 output limbs to DRAM.
+        #  There could be reuse on Intt and Ntt twiddle factors depending on
+        #  how much scratchpad space is left.
         intt_output_limbs_in_scratchpad = self.he_params.L
         baseconv_output_limbs_in_scratchpad = self.he_params.L - 1
         num_limbs_left = num_limbs_available - 2 * self.he_params.L
@@ -189,14 +213,13 @@ class LatencyEstimator:
     else:
       raise ValueError
 
-  def _estimate_limb_elementwise(self,
-                                 num_limbs,
-                                 input_fused=False,
-                                 output_fused=False):
-    memory_read_time_us = 0 if input_fused else utils.get_limb_size_bytes(
-        self.he_params) * num_limbs / self.constraints.bandwidth_gbps / 1e3
-    memory_write_time_us = 0 if output_fused else utils.get_limb_size_bytes(
-        self.he_params) * num_limbs / self.constraints.bandwidth_gbps / 1e3
+  def _estimate_limb_elementwise(self, num_limbs, num_limbs_read,
+                                 num_limbs_write):
+    memory_read_time_us = utils.get_limb_size_bytes(
+        self.he_params) * num_limbs_read / self.constraints.bandwidth_gbps / 1e3
+    memory_write_time_us = utils.get_limb_size_bytes(
+        self.he_params
+    ) * num_limbs_write / self.constraints.bandwidth_gbps / 1e3
     compute_time_us = (
         num_limbs * (self.he_params.N / self.design_params.num_modular_alus) *
         utils.get_cycle_us(self.constraints.frequency_mhz))
@@ -259,15 +282,14 @@ class LatencyEstimator:
 
     return latency_us * self.derating_factor
 
-  def _estimate_decomp(self, input_fused=False, output_fused=False):
+  def _estimate_decomp(self, num_limbs_read, num_limbs_write):
     # only one polynomial goes through decomp.
-    limb_read_bytes = 0 if input_fused else utils.get_limb_size_bytes(
-        self.he_params) * self.he_params.L
+    limb_read_bytes = utils.get_limb_size_bytes(self.he_params) * num_limbs_read
     memory_read_time_us = limb_read_bytes / self.constraints.bandwidth_gbps / 1e3
 
     # only one polynomial goes through decomp.
-    limb_write_bytes = 0 if output_fused else utils.get_limb_size_bytes(
-        self.he_params) * self.he_params.L
+    limb_write_bytes = utils.get_limb_size_bytes(
+        self.he_params) * num_limbs_write
     memory_write_time_us = limb_write_bytes / self.constraints.bandwidth_gbps / 1e3
 
     compute_time_us = (
@@ -280,7 +302,7 @@ class LatencyEstimator:
 
     return latency_us * self.derating_factor
 
-  def _estimate_inner_prod(self, input_fused=False, output_fused=False):
+  def _estimate_inner_prod(self, num_limbs_read, num_limbs_write):
     ksk_read_bytes = utils.get_key_switch_keys_size_bytes(self.he_params)
 
     alpha = self.he_params.alpha
@@ -288,13 +310,12 @@ class LatencyEstimator:
     k = self.he_params.k
     num_limbs = alpha * beta + k - 1
 
-    limb_read_bytes = 0 if input_fused else utils.get_limb_size_bytes(
-        self.he_params) * num_limbs
+    limb_read_bytes = utils.get_limb_size_bytes(self.he_params) * num_limbs_read
     total_read_bytes = ksk_read_bytes + limb_read_bytes
     memory_read_time_us = total_read_bytes / self.constraints.bandwidth_gbps / 1e3
 
-    total_write_bytes = 0 if output_fused else utils.get_limb_size_bytes(
-        self.he_params) * num_limbs
+    total_write_bytes = utils.get_limb_size_bytes(
+        self.he_params) * num_limbs_write
     memory_write_time_us = total_write_bytes / self.constraints.bandwidth_gbps / 1e3
 
     compute_time_us = (2 * num_limbs * beta *
