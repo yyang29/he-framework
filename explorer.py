@@ -32,7 +32,7 @@ class Explorer:
         "area": None,
     }
 
-  def explore_design_space(self, output_file):
+  def explore_design_space(self, output_file, alu_override):
     logger.info("Start running design space exploration...")
 
     file = open(output_file, 'w', newline='')
@@ -42,11 +42,11 @@ class Explorer:
         "ScratchSize"
     ])
 
-    alu_range_generator = generate_range(1, 512)
+    alu_range_generator = generate_range(1, alu_override)
     NUM_ALUS_RANGE = list(alu_range_generator)
     logger.debug(f"Modular ALU sweeping range: {NUM_ALUS_RANGE}")
 
-    throughput_permute_range_generator = generate_range(2, 512)
+    throughput_permute_range_generator = generate_range(2, alu_override)
     THROUGHPUT_PERMUTE_RANGE = list(throughput_permute_range_generator)
     logger.debug(f"Permute pipeline sweeping range: {THROUGHPUT_PERMUTE_RANGE}")
 

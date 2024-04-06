@@ -18,7 +18,7 @@ class LatencyEstimator:
     self.op = op
     self.constraints = constraints
     self.logger = logger
-    self.derating_factor = 1.05
+    self.derating_factor = 1.01
 
     # scratchpad data reuse policy:
     # first, reuse twiddle factors

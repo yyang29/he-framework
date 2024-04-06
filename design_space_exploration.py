@@ -29,7 +29,10 @@ def parse_input_csv(input_file):
     return data_dict
 
 
-def run_design_space_exploration(parsed_input, he_op, output_file):
+def run_design_space_exploration(parsed_input,
+                                 he_op,
+                                 output_file,
+                                 alu_override=512):
   logger.info(f"Running design space exploration for {he_op}.")
 
   he_params = he_parameters.HeParameters(parsed_input["N"], parsed_input["L"],
@@ -46,7 +49,7 @@ def run_design_space_exploration(parsed_input, he_op, output_file):
   exploration_constraints.display_constraints()
 
   dse = explorer.Explorer(he_params, he_op, exploration_constraints)
-  dse.explore_design_space(output_file)
+  dse.explore_design_space(output_file, alu_override)
 
 
 if __name__ == "__main__":
@@ -69,10 +72,21 @@ if __name__ == "__main__":
                       required=True,
                       help="Path of the output csv file.")
 
+  parser.add_argument("--alu-override", "-a", type=int, default=512)
+
+  parser.add_argument("--bw-override", "-b", type=int)
+
   args = parser.parse_args()
 
   parsed_input = parse_input_csv(args.input)
 
+  logger.info(f"Overriding ALU limit to {args.alu_override}.")
+
+  if args.bw_override is not None:
+    logger.info(f"Overriding BW limit to {args.bw_override}.")
+    parsed_input["bandwidth_gbps"] = args.bw_override
+
   assert (args.operation
           in ["CtCtAdd", "CtCtMult", "Rotate", "KeySwitch", "Rescale"])
-  run_design_space_exploration(parsed_input, args.operation, args.output)
+  run_design_space_exploration(parsed_input, args.operation, args.output,
+                               args.alu_override)
