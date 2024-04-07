@@ -42,6 +42,9 @@ class Explorer:
         "ScratchSize"
     ])
 
+    file2 = open("./results.txt", "a", newline='')
+    writer2 = csv.writer(file2)
+
     alu_range_generator = generate_range(1, alu_override)
     NUM_ALUS_RANGE = list(alu_range_generator)
     logger.debug(f"Modular ALU sweeping range: {NUM_ALUS_RANGE}")
@@ -127,6 +130,18 @@ class Explorer:
         f"DSE finished. Best design latency: {self.best_design['latency']} us.")
     self.best_design["area"].display_area()
     self.best_design["design_params"].display_parameters()
+
+    writer2.writerow([
+        self.he_op,
+        self.best_design['latency'],
+        self.best_design["area"].num_dsps,
+        self.best_design["area"].num_urams,
+        self.best_design["area"].num_brams,
+        self.best_design["design_params"].num_modular_alus,
+        self.best_design["design_params"].permute_throughput,
+        self.best_design["design_params"].scratchpad_size_bytes,
+        self.constraints.bandwidth_gbps,
+    ])
 
   def _get_minimal_number_banks(self):
     # keep number of banks constant for now
