@@ -38,7 +38,8 @@ def run_design_space_exploration(parsed_input,
   he_params = he_parameters.HeParameters(parsed_input["N"], parsed_input["L"],
                                          parsed_input["log_P"],
                                          parsed_input["dnum"],
-                                         parsed_input["log_q_i"])
+                                         parsed_input["log_q_i"],
+                                         parsed_input["name"])
 
   exploration_constraints = constraints.Constraints(
       parsed_input["latency_us"], parsed_input["uram"], parsed_input["bram"],
@@ -76,9 +77,12 @@ if __name__ == "__main__":
 
   parser.add_argument("--bw-override", "-b", type=int)
 
+  parser.add_argument("--name", "-n", type=str, default="NoName")
+
   args = parser.parse_args()
 
   parsed_input = parse_input_csv(args.input)
+  parsed_input["name"] = args.name
 
   logger.info(f"Overriding ALU limit to {args.alu_override}.")
 

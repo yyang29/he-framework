@@ -132,6 +132,7 @@ class Explorer:
     self.best_design["design_params"].display_parameters()
 
     writer2.writerow([
+        self.he_params.name,
         self.he_op,
         self.best_design['latency'],
         self.best_design["area"].num_dsps,

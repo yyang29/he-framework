@@ -9,6 +9,7 @@ logger.setLevel("DEBUG")
 
 class HeParameters:
   # Class members
+  name: str = None
   N = None
   L = None
   log_P = None
@@ -17,12 +18,13 @@ class HeParameters:
   alpha = None
   beta = None
 
-  def __init__(self, N, L, log_P, dnum, log_q_i):
+  def __init__(self, N, L, log_P, dnum, log_q_i, name):
     self.N = N
     self.L = L
     self.log_P = log_P
     self.dnum = dnum
     self.log_q_i = log_q_i
+    self.name = name
 
     # Derived parameters
     self.alpha = math.ceil((L + 1) / dnum)
@@ -31,6 +33,7 @@ class HeParameters:
 
   def display_parameters(self):
     logger.info("HE parameters are as shown below.")
+    logger.info(f"Experiment Name: {self.name}")
     logger.info(f"\tN: {self.N}")
     logger.info(f"\tL: {self.L}")
     logger.info(f"\tlog_P: {self.log_P}")
