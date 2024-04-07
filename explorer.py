@@ -42,7 +42,7 @@ class Explorer:
         "ScratchSize"
     ])
 
-    file2 = open("./results.txt", "a", newline='')
+    file2 = open("./results.csv", "a", newline='')
     writer2 = csv.writer(file2)
 
     alu_range_generator = generate_range(1, alu_override)
@@ -138,7 +138,8 @@ class Explorer:
         self.best_design["area"].num_dsps,
         self.best_design["area"].num_urams,
         self.best_design["area"].num_brams,
-        self.best_design["design_params"].num_modular_alus,
+        # self.best_design["design_params"].num_modular_alus,
+        alu_override,
         self.best_design["design_params"].permute_throughput,
         self.best_design["design_params"].scratchpad_size_bytes,
         self.constraints.bandwidth_gbps,
