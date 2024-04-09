@@ -18,7 +18,7 @@ class LatencyEstimator:
     self.op = op
     self.constraints = constraints
     self.logger = logger
-    self.derating_factor = 1.01
+    self.derating_factor = 1.21083452
 
     # scratchpad data reuse policy:
     # first, reuse twiddle factors
@@ -32,7 +32,7 @@ class LatencyEstimator:
     if self.op == "CtCtAdd" or self.op == "CtCtSub":
       latency_us = self._estimate_limb_elementwise(
           platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
-          platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
+          2 * platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
           platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L)
       logger.info(f"{self.op} takes {latency_us} us.")
       return latency_us
@@ -40,9 +40,10 @@ class LatencyEstimator:
     elif self.op == "CtCtMult":
       latency_us = self._estimate_limb_elementwise(
           platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
-          platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
-          platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L)
+          4 * platform_constants.POLYNOMIALS_PER_CIPHERTEXT * self.he_params.L,
+          3 * self.he_params.L)
       latency_ks = self._estimate_key_switch()
+      logger.info(f"latency_limbmult: {latency_us}")
       return latency_us + latency_ks
 
     elif self.op == "Rotate":
@@ -109,6 +110,9 @@ class LatencyEstimator:
       p0_latency_base_conv = self._estimate_base_conv_new(
           L, L - 1, L - intt_output_limbs_in_scratchpad,
           L - 1 - baseconv_output_limbs_in_scratchpad)
+      p0_latency_base_conv = self._estimate_base_conv_new(
+          L, L - 1, L - 7 * intt_output_limbs_in_scratchpad // 8,
+          L - 1 - baseconv_output_limbs_in_scratchpad)
       p0_latency_ntt = self._estimate_ntt_new(
           L - 1, L - 1 - baseconv_output_limbs_in_scratchpad, L - 1, L - 1)
       p0_latency_us = p0_latency_intt + p0_latency_base_conv + p0_latency_ntt
@@ -118,6 +122,9 @@ class LatencyEstimator:
           L - intt_tf_sets_in_scratchpad)
       p1_latency_base_conv = self._estimate_base_conv_new(
           L, L - 1, L - intt_output_limbs_in_scratchpad,
+          L - 1 - baseconv_output_limbs_in_scratchpad)
+      p1_latency_base_conv = self._estimate_base_conv_new(
+          L, L - 1, L - 7 * intt_output_limbs_in_scratchpad // 8,
           L - 1 - baseconv_output_limbs_in_scratchpad)
       p1_latency_ntt = self._estimate_ntt_new(
           L - 1, L - 1 - baseconv_output_limbs_in_scratchpad, L - 1,
@@ -153,7 +160,6 @@ class LatencyEstimator:
 
     # Dataflow planning goes below
     # decomp fused with INTT next, no write out to DRAM
-    decomp_output_limbs_in_scratchpad = alpha
     if num_limbs_available > alpha:
       modup_intt_output_limbs_in_scratchpad = alpha
     else:
@@ -163,6 +169,7 @@ class LatencyEstimator:
     # Modup-ntt fused with innerprod next, no need to write out to DRAM
     modup_ntt_output_limbs_in_scratchpad = alpha * beta + k - 1
     num_limbs_left = num_limbs_available - modup_intt_output_limbs_in_scratchpad
+    num_limbs_left = 0 if num_limbs_left < 0 else num_limbs_left
     if num_limbs_left > 2 * (alpha * beta + k - 1):
       kskinnerprod_output_limbs_in_scratchpad = 2 * (alpha * beta + k - 1)
     else:
@@ -178,48 +185,53 @@ class LatencyEstimator:
     moddown_baseconv_output_limbs_in_scratchpad = L - 1
     moddown_ntt_output_limbs_in_scratchpad = 0
 
-    latency_decomp = self._estimate_decomp(
-        L, L - decomp_output_limbs_in_scratchpad)
-    latency_decomp *= beta
+    latency_decomp = self._estimate_decomp(L, 0)
 
-    latency_modup_intt = self._estimate_ntt_new(
-        alpha, alpha - decomp_output_limbs_in_scratchpad,
-        alpha - modup_intt_output_limbs_in_scratchpad, 0)
+    latency_modup_intt = self._estimate_ntt_new(alpha, 0, alpha, alpha)
     latency_modup_intt *= beta
 
     latency_modup_base_conv = self._estimate_base_conv_new(
         alpha, alpha * beta + k - 1,
-        alpha - modup_intt_output_limbs_in_scratchpad,
-        alpha * beta + k - 1 - modup_baseconv_output_limbs_in_scratchpad)
+        alpha - modup_intt_output_limbs_in_scratchpad, 0)
     latency_modup_base_conv *= beta
+    # TODO
+    latency_modup_base_conv += (L * utils.get_limb_size_bytes(self.he_params) *
+                                4 / self.constraints.bandwidth_gbps / 1e3)
 
-    latency_modup_ntt = self._estimate_ntt_new(
-        alpha * beta + k - 1,
-        alpha * beta + k - 1 - modup_baseconv_output_limbs_in_scratchpad,
-        alpha * beta + k - 1 - modup_ntt_output_limbs_in_scratchpad, 0)
+    latency_modup_ntt = self._estimate_ntt_new(alpha * beta + k - 1 - alpha, 0,
+                                               alpha * beta + k - 1 - alpha,
+                                               alpha * beta + k - 1 - alpha)
     latency_modup_ntt *= beta
 
-    latency_inner_prod = self._estimate_inner_prod(
-        alpha * beta + k - 1 - modup_ntt_output_limbs_in_scratchpad,
-        alpha * beta + k - 1 - kskinnerprod_output_limbs_in_scratchpad)
-    latency_inner_prod = 2 * beta
+    # Reset scratchpad after modup NTT.
+    num_limbs_available = self._get_max_num_limbs_in_scratchpad()
+    if num_limbs_available > 2 * (alpha * beta + k - 1):
+      kskinnerprod_output_limbs_in_scratchpad = 2 * (alpha * beta + k - 1)
+    else:
+      kskinnerprod_output_limbs_in_scratchpad = num_limbs_available
+    latency_inner_prod = self._estimate_inner_prod(alpha * beta + k - 1, 0)
 
-    latency_moddown_intt = self._estimate_ntt_new(
-        alpha * beta + k - 1,
-        alpha * beta + k - 1 - kskinnerprod_output_limbs_in_scratchpad,
-        alpha * beta + k - 1 - moddown_intt_output_limbs_in_scratchpad, 0)
+    latency_moddown_intt = self._estimate_ntt_new(alpha * beta + k - 1, 0,
+                                                  alpha * beta + k - 1, 0)
     latency_moddown_intt *= 2
+    # TODO
+    latency_modup_base_conv += (L * utils.get_limb_size_bytes(self.he_params) *
+                                3 / self.constraints.bandwidth_gbps / 1e3)
 
     latency_moddown_base_conv = self._estimate_base_conv_new(
         alpha * beta + k - 1, self.he_params.L - 1,
-        alpha * beta + k - 1 - moddown_intt_output_limbs_in_scratchpad,
-        L - 1 - moddown_baseconv_output_limbs_in_scratchpad)
+        alpha * beta + k - 1 - kskinnerprod_output_limbs_in_scratchpad // 2, 0)
     latency_moddown_base_conv *= 2
 
-    latency_moddown_ntt = self._estimate_ntt_new(
-        L - 1, L - 1 - moddown_baseconv_output_limbs_in_scratchpad,
-        L - 1 - moddown_ntt_output_limbs_in_scratchpad, 0)
+    latency_moddown_ntt = self._estimate_ntt_new(L - 1, 0, L - 1, 0)
     latency_moddown_ntt *= 2
+
+    logger.info(
+        f"latency_decomp: {latency_decomp}, "
+        f"latency_modup: {latency_modup_intt + latency_modup_base_conv + latency_modup_ntt} "
+        f"latency_innerprod: {latency_inner_prod}, "
+        f"latency_moddown: {latency_moddown_intt + latency_moddown_base_conv + latency_moddown_ntt}"
+    )
 
     return (latency_decomp + latency_modup_intt + latency_modup_base_conv +
             latency_modup_ntt + latency_inner_prod + latency_moddown_intt +
@@ -295,6 +307,9 @@ class LatencyEstimator:
     return latency_us * self.derating_factor
 
   def _estimate_decomp(self, num_limbs_read, num_limbs_write):
+    logger.debug(f"Estimating decomp latency. "
+                 f"num_limbs_read = {num_limbs_read} "
+                 f"num_limbs_write = {num_limbs_write}")
     # only one polynomial goes through decomp.
     limb_read_bytes = utils.get_limb_size_bytes(self.he_params) * num_limbs_read
     memory_read_time_us = limb_read_bytes / self.constraints.bandwidth_gbps / 1e3
@@ -309,12 +324,17 @@ class LatencyEstimator:
         (self.he_params.N / self.design_params.num_modular_alus) *
         utils.get_cycle_us(self.constraints.frequency_mhz))
 
+    logger.debug(f"Estimating decomp latency. {self.he_params.L} "
+                 f"memory_read_time {memory_read_time_us} "
+                 f"memory write time {memory_write_time_us} "
+                 f"compute time {compute_time_us}")
+
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)
 
     return latency_us * self.derating_factor
 
-  def _estimate_inner_prod(self, num_limbs_read, num_limbs_write):
+  def _estimate_inner_prod(self, num_limbs_read_per_digit, num_limbs_write):
     ksk_read_bytes = utils.get_key_switch_keys_size_bytes(self.he_params)
 
     alpha = self.he_params.alpha
@@ -322,7 +342,8 @@ class LatencyEstimator:
     k = self.he_params.k
     num_limbs = alpha * beta + k - 1
 
-    limb_read_bytes = utils.get_limb_size_bytes(self.he_params) * num_limbs_read
+    limb_read_bytes = beta * utils.get_limb_size_bytes(
+        self.he_params) * num_limbs_read_per_digit
     total_read_bytes = ksk_read_bytes + limb_read_bytes
     memory_read_time_us = total_read_bytes / self.constraints.bandwidth_gbps / 1e3
 
@@ -330,11 +351,18 @@ class LatencyEstimator:
         self.he_params) * num_limbs_write
     memory_write_time_us = total_write_bytes / self.constraints.bandwidth_gbps / 1e3
 
-    compute_time_us = (2 * num_limbs * beta *
-                       (self.he_params.N / self.design_params.num_modular_alus))
+    compute_time_us = (
+        (2 * num_limbs * beta *
+         (self.he_params.N / self.design_params.num_modular_alus)) *
+        utils.get_cycle_us(self.constraints.frequency_mhz))
 
     latency_us = max(compute_time_us,
                      memory_read_time_us + memory_write_time_us)
+
+    logger.debug(f"Estimating innerprod latency. "
+                 f"memory_read_time {memory_read_time_us} "
+                 f"memory write time {memory_write_time_us} "
+                 f"compute time {compute_time_us}")
 
     return latency_us * self.derating_factor
 

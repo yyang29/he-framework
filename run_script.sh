@@ -2,7 +2,7 @@ echo "Name,Op,Latency,DSPs,URAMs,BRAMs,NumAlu,PermTput,ScratchSize,BW" > results
 
 for set in "Set-1" "Set-2" "Set-3"; do
   for op in "CtCtAdd" "CtCtMult" "Rescale" "Rotate"; do
-    for alu in 16 32 64 128 256 512; do
+    for alu in 64 128 256 512; do
       for bw in 128 256 460; do
         echo "python design_space_exploration.py --input ${set}.csv --operation ${op} --output ./${set}_output.csv -a $alu -b $bw -n Set-1 2>&1 | tee /tmp/log.log"
         python design_space_exploration.py --input ${set}.csv --operation ${op} --output ./${set}_output.csv -a $alu -b $bw -n ${set} > /tmp/log.log
