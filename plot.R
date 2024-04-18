@@ -41,8 +41,8 @@ plot_data <- data %>% filter(BW == 460)
 
 # ggsave("./figure1.png", plot=p1, width=9, height=2.5, dpi=300)
 
-plot_data <- data %>% filter(Op != "Rotate")
-plot_data <- plot_data %>% filter(NumAlu != "16")
+# plot_data <- data %>% filter(Op != "Rotate")
+plot_data <- data %>% filter(NumAlu != "16")
 
 p1 <- ggplot(plot_data, aes(x = NumAlu, y = Latency, fill = factor(BW))) +
   geom_bar(color="black", stat = "identity", position="dodge", linewidth=0.3) +

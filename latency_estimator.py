@@ -50,6 +50,9 @@ class LatencyEstimator:
       latency_automorph = self._estimate_automorph(self.he_params.L,
                                                    self.he_params.L,
                                                    self.he_params.L)
+      latency_automorph += (self.he_params.L *
+                            utils.get_limb_size_bytes(self.he_params) * 4 /
+                            self.constraints.bandwidth_gbps / 1e3)
       latency_ks = self._estimate_key_switch()
       return latency_automorph + latency_ks
 
